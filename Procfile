@@ -1,0 +1,1 @@
+web: sh -c 'node src/server.js && node src/worker'

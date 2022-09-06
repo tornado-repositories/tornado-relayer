@@ -20,11 +20,11 @@ router.use((err, req, res, next) => {
 
 router.get('/', status.index)
 router.get('/v1/status', status.status)
-router.get('/v1/jobs/:id', status.getJob)
-router.post('/v1/tornadoWithdraw', controller.tornadoWithdraw)
+// router.get('/v1/jobs/:id', status.getJob)
 router.get('/status', status.status)
 router.post('/relay', controller.tornadoWithdraw)
-router.post('/v1/miningReward', controller.miningReward)
-router.post('/v1/miningWithdraw', controller.miningWithdraw)
+router.post('/v1/tornadoWithdraw', controller.tornadoWithdraw)
+// router.post('/v1/miningReward', controller.miningReward)
+// router.post('/v1/miningWithdraw', controller.miningWithdraw)
 
 module.exports = router

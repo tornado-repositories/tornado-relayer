@@ -1,8 +1,12 @@
-const { createClient } = require('ioredis')
+var Redis = require('ioredis')
 const { redisUrl } = require('../config')
 
-const redis = createClient(redisUrl)
-const redisSubscribe = createClient(redisUrl)
+const redis = new Redis(15577, process.env.REDIS_HOSTNAME, {
+  password: process.env.REDIS_PASSWORD,
+})
+const redisSubscribe = new Redis(15577, process.env.REDIS_HOSTNAME, {
+  password: process.env.REDIS_PASSWORD,
+})
 
 module.exports = {
   redis,

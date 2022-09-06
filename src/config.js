@@ -4,7 +4,7 @@ const { jobType } = require('./constants')
 const tornConfig = require('torn-token')
 module.exports = {
   netId: Number(process.env.NET_ID) || 1,
-  redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  redisUrl: process.env.REDIS_URL2 || process.env.REDIS_URL1 || 'redis://127.0.0.1:6379',
   httpRpcUrl: process.env.HTTP_RPC_URL,
   wsRpcUrl: process.env.WS_RPC_URL,
   oracleRpcUrl: process.env.ORACLE_RPC_URL || 'https://mainnet.infura.io/',
@@ -14,7 +14,6 @@ module.exports = {
   privateKey: process.env.PRIVATE_KEY,
   instances: tornConfig.instances,
   torn: tornConfig,
-  port: process.env.APP_PORT || 8000,
   tornadoServiceFee: Number(process.env.REGULAR_TORNADO_WITHDRAW_FEE),
   miningServiceFee: Number(process.env.MINING_SERVICE_FEE),
   rewardAccount: process.env.REWARD_ACCOUNT,

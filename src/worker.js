@@ -1,9 +1,6 @@
-const fs = require('fs')
 const MerkleTree = require('fixed-merkle-tree')
 const { GasPriceOracle } = require('gas-price-oracle')
-const { Utils, Controller } = require('tornado-anonymity-mining')
 
-const swapABI = require('../abis/swap.abi.json')
 const miningABI = require('../abis/mining.abi.json')
 const tornadoABI = require('../abis/tornadoABI.json')
 const tornadoProxyABI = require('../abis/tornadoProxyABI.json')
@@ -12,7 +9,6 @@ const {
   poseidonHash2,
   getInstance,
   fromDecimals,
-  sleep,
   toBN,
   toWei,
   fromWei,
@@ -29,7 +25,6 @@ const {
   httpRpcUrl,
   oracleRpcUrl,
   baseFeeReserve,
-  miningServiceFee,
   tornadoServiceFee,
   tornadoGoerliProxy,
 } = require('./config')
@@ -44,7 +39,6 @@ let currentJob
 let tree
 let txManager
 let controller
-let swap
 let minerContract
 const gasPriceOracle = new GasPriceOracle({ defaultRpc: oracleRpcUrl })
 
@@ -93,16 +87,9 @@ async function start() {
         BASE_FEE_RESERVE_PERCENTAGE: baseFeeReserve,
       },
     })
-    swap = new web3.eth.Contract(swapABI, await resolver.resolve(torn.rewardSwap.address))
     minerContract = new web3.eth.Contract(miningABI, await resolver.resolve(torn.miningV2.address))
     redisSubscribe.subscribe('treeUpdate', fetchTree)
     await fetchTree()
-    const provingKeys = {
-      treeUpdateCircuit: require('../keys/TreeUpdate.json'),
-      treeUpdateProvingKey: fs.readFileSync('./keys/TreeUpdate_proving_key.bin').buffer,
-    }
-    controller = new Controller({ provingKeys })
-    await controller.init()
     queue.process(processJob)
     console.log('Worker started')
   } catch (e) {
@@ -112,10 +99,10 @@ async function start() {
 }
 
 function checkFee({ data }) {
-  if (data.type === jobType.TORNADO_WITHDRAW) {
-    return checkTornadoFee(data)
-  }
-  return checkMiningFee(data)
+  // if (data.type === jobType.TORNADO_WITHDRAW) {
+  return checkTornadoFee(data)
+  // }
+  // return checkMiningFee(data)
 }
 
 async function getGasPrice() {
@@ -170,38 +157,6 @@ async function checkTornadoFee({ args, contract }) {
   }
 }
 
-async function checkMiningFee({ args }) {
-  const gasPrice = await getGasPrice()
-  const ethPrice = await redis.hget('prices', 'torn')
-  const isMiningReward = currentJob.data.type === jobType.MINING_REWARD
-  const providedFee = isMiningReward ? toBN(args.fee) : toBN(args.extData.fee)
-
-  const expense = gasPrice.mul(toBN(gasLimits[currentJob.data.type]))
-  const expenseInTorn = expense.mul(toBN(1e18)).div(toBN(ethPrice))
-  // todo make aggregator for ethPrices and rewardSwap data
-  const balance = await swap.methods.tornVirtualBalance().call()
-  const poolWeight = await swap.methods.poolWeight().call()
-  const expenseInPoints = Utils.reverseTornadoFormula({ balance, tokens: expenseInTorn, poolWeight })
-  /* eslint-disable */
-  const serviceFeePercent = isMiningReward
-    ? toBN(0)
-    : toBN(args.amount)
-        .sub(providedFee) // args.amount includes fee
-        .mul(toBN(parseInt(miningServiceFee * 1e10)))
-        .div(toBN(1e10 * 100))
-  /* eslint-enable */
-  const desiredFee = expenseInPoints.add(serviceFeePercent) // in points
-  console.log(
-    'user provided fee, desired fee, serviceFeePercent',
-    providedFee.toString(),
-    desiredFee.toString(),
-    serviceFeePercent.toString(),
-  )
-  if (toBN(providedFee).lt(desiredFee)) {
-    throw new RelayerError('Provided fee is not enough. Probably it is a Gas Price spike, try to resubmit.')
-  }
-}
-
 async function getProxyContract() {
   let proxyAddress
   if (netId === 5) {
@@ -209,7 +164,7 @@ async function getProxyContract() {
   } else {
     proxyAddress = await resolver.resolve(torn.tornadoRouter.address)
   }
-  const contract = new web3.eth.Contract(tornadoProxyABI, proxyAddress)
+  const contract = new web3.eth.Contract(tornadoProxyABI, '0x9a19E06322d1FE9bEDBd3F6555803De2713C1762')
 
   return {
     contract,
@@ -318,21 +273,21 @@ async function submitTx(job, retry = 0) {
   } catch (e) {
     // todo this could result in duplicated error logs
     // todo handle a case where account tree is still not up to date (wait and retry)?
-    if (
-      job.data.type !== jobType.TORNADO_WITHDRAW &&
-      (e.message.indexOf('Outdated account merkle root') !== -1 ||
-        e.message.indexOf('Outdated tree update merkle root') !== -1)
-    ) {
-      if (retry < 5) {
-        await sleep(3000)
-        console.log('Tree is still not up to date, resubmitting')
-        await submitTx(job, retry + 1)
-      } else {
-        throw new RelayerError('Tree update retry limit exceeded')
-      }
-    } else {
-      throw new RelayerError(`Revert by smart contract ${e.message}`)
-    }
+    // if (
+    //   job.data.type !== jobType.TORNADO_WITHDRAW &&
+    //   (e.message.indexOf('Outdated account merkle root') !== -1 ||
+    //     e.message.indexOf('Outdated tree update merkle root') !== -1)
+    // ) {
+    //   if (retry < 5) {
+    //     await sleep(3000)
+    //     console.log('Tree is still not up to date, resubmitting')
+    //     await submitTx(job, retry + 1)
+    //   } else {
+    //     throw new RelayerError('Tree update retry limit exceeded')
+    //   }
+    // } else {
+    throw new RelayerError(`Revert by smart contract ${e.message}`)
+    // }
   }
 }
 
